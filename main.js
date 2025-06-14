@@ -161,7 +161,7 @@ function buildColumn(p, nTrees=1, spacing=10){ // p will now come from Python ba
       if(isCenter){placed++; continue;} // central tree handled above
       if(placed>=totalTrees) break;
       placed++;
-      const tree = makeTree(p);
+      const tree = makeTree(p, uniform(0.9, 1.1));
       tree.position.set((c-center)*spacing, 0, (r-center)*spacing);
       extraTreesGroup.add(tree);
     }
@@ -173,7 +173,7 @@ function buildColumn(p, nTrees=1, spacing=10){ // p will now come from Python ba
 }
 
 // Paste your LATEST makeTree function here (from the "more realistic" and "more cones" steps)
-function makeTree(p) {
+function makeTree(p, size=1) {
     const g = new THREE.Group();
     const trunkHeight = p.H_canopy * uniform(0.20, 0.35);
     const foliageCrownVisualHeight = p.H_canopy * uniform(0.35, 0.65);
@@ -238,8 +238,11 @@ function makeTree(p) {
         }
     }
     g.traverse(child => { if (child.isMesh) child.castShadow = true; });
-    const baseScaleVariation = uniform(0.85, 1.15);
-    g.scale.set( baseScaleVariation * uniform(0.9,1.1), baseScaleVariation * uniform(0.85,1.15), baseScaleVariation * uniform(0.9,1.1) );
+    const baseScaleVariation = uniform(0.95, 1.05);
+    const sx = baseScaleVariation * uniform(0.95,1.05) * size;
+    const sy = baseScaleVariation * uniform(0.95,1.05) * size;
+    const sz = baseScaleVariation * uniform(0.95,1.05) * size;
+    g.scale.set(sx, sy, sz);
     return g;
 }
 
