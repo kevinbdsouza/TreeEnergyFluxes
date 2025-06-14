@@ -20,6 +20,7 @@ const tSnDiv    = document.getElementById('t_snow');
 const tSoDiv    = document.getElementById('t_soil');
 const qSolDiv   = document.getElementById('q_solar_display');
 const fluxInfoC = document.getElementById('flux_info_canopy');
+const fluxValuesDiv = document.getElementById('flux_values');
 
 const seasonSel = document.getElementById('season');
 const forestSel = document.getElementById('forest_type');
@@ -32,10 +33,9 @@ let canopyGroup, trunkMesh, snowMesh, soilMesh, fluxArrows; // trunkMesh here is
 function init() {
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0xbfd1e5);
-  scene.fog = new THREE.Fog(0xbfd1e5, 15, 40);
 
   camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 1000);
-  camera.position.set(10,7,10); camera.lookAt(0,1,0);
+  camera.position.set(12,8,15); camera.lookAt(0,2,0);
 
   renderer = new THREE.WebGLRenderer({antialias:true});
   renderer.setSize(innerWidth,innerHeight);
@@ -43,13 +43,26 @@ function init() {
   document.body.appendChild(renderer.domElement);
 
   controls = new OrbitControls(camera, renderer.domElement);
-  controls.enableDamping = true; controls.target.set(0,1,0);
+  controls.enableDamping = true;
+  controls.minDistance = 6;
+  controls.maxDistance = 40;
+  controls.target.set(0,2,0);
 
   scene.add(new THREE.HemisphereLight(0xffffbb,0x080820,0.6));
   const sun = new THREE.DirectionalLight(0xffffff,1.2);
   sun.position.set(5,10,7.5); sun.castShadow=true;
   sun.shadow.mapSize.width = sun.shadow.mapSize.height = 1024;
   scene.add(sun);
+  const sunMesh = new THREE.Mesh(
+      new THREE.SphereGeometry(0.8,16,16),
+      new THREE.MeshBasicMaterial({color:0xffffaa})
+  );
+  sunMesh.position.copy(sun.position);
+  scene.add(sunMesh);
+
+  const windDir = new THREE.Vector3(1,0,0);
+  const windArrow = new THREE.ArrowHelper(windDir, new THREE.Vector3(-6,5,0), 4, 0x99ccff, 1, 0.5);
+  scene.add(windArrow);
 
   canopyGroup = new THREE.Group();  scene.add(canopyGroup);
   fluxArrows  = new THREE.Group();  scene.add(fluxArrows);
@@ -86,7 +99,7 @@ const tempColour = (T,Tref)=>{
 function ensureGround(){
   if(soilMesh) return;
   const g=new THREE.PlaneGeometry(20,20);
-  soilMesh=new THREE.Mesh(g,new THREE.MeshStandardMaterial({color:0x556b2f}));
+  soilMesh=new THREE.Mesh(g,new THREE.MeshStandardMaterial({color:0x8b7765,roughness:1}));
   soilMesh.rotation.x=-Math.PI/2; soilMesh.receiveShadow=true; scene.add(soilMesh);
   const grid=new THREE.GridHelper(20,20,0x444444,0x888888); grid.material.opacity=0.3; grid.material.transparent=true;
   scene.add(grid);
@@ -103,7 +116,7 @@ function buildColumn(p){ // p will now come from Python backend
     const scale=Math.sqrt(p.A_snow/(p.A_snow+p.A_soil + 1e-6)); // Add epsilon for safety
     const size=19*scale;
     const g=new THREE.BoxGeometry(size,p.Hsnow,size);
-    snowMesh=new THREE.Mesh(g,new THREE.MeshStandardMaterial({color:0xffffff,transparent:true,opacity:0.9}));
+    snowMesh=new THREE.Mesh(g,new THREE.MeshStandardMaterial({color:0xffffff,roughness:0.8,metalness:0.1}));
     snowMesh.position.y=p.Hsnow/2; snowMesh.castShadow=snowMesh.receiveShadow=true; scene.add(snowMesh);
   }
 
@@ -111,8 +124,8 @@ function buildColumn(p){ // p will now come from Python backend
   if(p.A_trunk_plan > 0 && p.H_canopy > 0){
      // Assuming p.A_trunk_plan is for the large central trunk, not the sum of small tree trunks
     const radius=Math.max(0.1,Math.min(Math.sqrt(p.A_trunk_plan*100/Math.PI),2));
-    const g=new THREE.CylinderGeometry(radius*0.6,radius,p.H_canopy,10);
-    trunkMesh=new THREE.Mesh(g,new THREE.MeshStandardMaterial({color:0x8b4513})); // Initial color
+    const g=new THREE.CylinderGeometry(radius*0.6,radius,p.H_canopy,12,3);
+    trunkMesh=new THREE.Mesh(g,new THREE.MeshStandardMaterial({color:0x8b4513,roughness:0.8}));
     trunkMesh.position.y=p.H_canopy/2; trunkMesh.castShadow=true; scene.add(trunkMesh);
   }
 
@@ -128,6 +141,9 @@ function buildColumn(p){ // p will now come from Python backend
       canopyGroup.add(tree);
     }
   }
+  controls.target.set(0,p.H_canopy/2,0);
+  camera.position.set(p.H_canopy*1.2,p.H_canopy, p.H_canopy*1.6);
+  controls.update();
 }
 
 // Paste your LATEST makeTree function here (from the "more realistic" and "more cones" steps)
@@ -138,7 +154,7 @@ function makeTree(p) {
     const foliageCrownRadiusFactor = uniform(1.8, 4.5);
     const trunkBottomRadius = Math.max(0.05, p.H_canopy * 0.015 * uniform(0.8, 1.2) * Math.sqrt(Math.max(0.1,p.LAI) / 4 + 0.1));
     const trunkTopRadius = trunkBottomRadius * uniform(0.5, 0.75);
-    const trunkGeo = new THREE.CylinderGeometry(trunkTopRadius, trunkBottomRadius, trunkHeight, 8);
+    const trunkGeo = new THREE.CylinderGeometry(trunkTopRadius, trunkBottomRadius, trunkHeight, 12, 2);
     const trunkMat = new THREE.MeshStandardMaterial({ color: 0x654321, roughness: 0.9 });
     const trunkMesh = new THREE.Mesh(trunkGeo, trunkMat);
     trunkMesh.position.y = trunkHeight / 2;
@@ -204,13 +220,15 @@ function makeTree(p) {
 
 /* ---------- arrow helpers ------------------------------------------------ */
 function addArrow(orig, dir, len, col, cat) {
-  const head = Math.max(0.8, len * 0.25);
-  const wid  = head * 0.6;
+  const head = Math.max(0.8, len * 0.3);
+  const wid  = head * 0.8;
   const o    = orig.clone().add(dir.clone().normalize().multiplyScalar(head));
   const a = new THREE.ArrowHelper(dir.clone().normalize(), o, Math.max(0.1, len - head), col, head, wid);
   a.userData.category = cat;
   fluxArrows.add(a);
 }
+const scaleLen = val => 0.5 + Math.abs(val)/40;
+const arrowDir = val => new THREE.Vector3(0, val < 0 ? 1 : -1, 0);
 const arrowCats=()=>[...document.querySelectorAll('.fluxToggle')].filter(cb=>cb.checked).map(cb=>cb.value);
 function setArrowVisibility(){const act=arrowCats(); fluxArrows.children.forEach(a=>a.visible=act.includes(a.userData.category));}
 
@@ -223,11 +241,11 @@ function drawFluxes(Fx, p){ // Fx and p will come from Python backend
   }
 
   const pos={
-    canopy:new THREE.Vector3(0,p.H_canopy+1,0),
-    trunk :new THREE.Vector3(0,p.H_canopy/2,0), // Position relative to large central trunk if visualized
-    snow  :new THREE.Vector3(0,p.Hsnow || 0.2,0), // Use Hsnow from p
-    soil  :new THREE.Vector3(0,0.05,0),
-    sky   :new THREE.Vector3(0,p.H_canopy+6,0)
+    canopy:new THREE.Vector3(3,p.H_canopy+1,0),
+    trunk :new THREE.Vector3(3,p.H_canopy/2,0),
+    snow  :new THREE.Vector3(3,(p.Hsnow||0.2),0),
+    soil  :new THREE.Vector3(3,0.05,0),
+    sky   :new THREE.Vector3(3,p.H_canopy+6,0)
   };
   const act=arrowCats();
 
@@ -235,11 +253,7 @@ function drawFluxes(Fx, p){ // Fx and p will come from Python backend
   if(Fx.canopy && Fx.canopy.conv_atm !== undefined && act.includes('sensible')){
     const H = Fx.canopy.conv_atm; // Python's conv_atm for canopy is -h(Tc-Ta), so negative is upward flux
     if(Math.abs(H)>1){ // Check magnitude
-      const dir=new THREE.Vector3(0, H > 0 ? 1 : -1, 0); // If H > 0 (energy gain for canopy), arrow points down. If H < 0 (energy loss), arrow up.
-                                                          // This matches if conv_atm = Q_canopy_sensible.
-                                                          // Python: flux["canopy"]["conv_atm"] = -conv_can_atm where conv_can_atm = p["h_can"] * A_can * (T_can - p["T_atm"])
-                                                          // So, if T_can > T_atm, conv_can_atm (in Python var) is positive, flux["canopy"]["conv_atm"] is negative (loss from canopy, up).
-      addArrow(pos.canopy, dir, 1.5 + Math.abs(H)/40, colours.sensible, 'sensible');
+      addArrow(pos.canopy, arrowDir(H), scaleLen(H), colours.sensible, 'sensible');
     }
   }
 
@@ -248,7 +262,7 @@ function drawFluxes(Fx, p){ // Fx and p will come from Python backend
     const nArr=Math.min(5,Math.max(1,Math.floor(p.Q_solar/150)));
     for(let i=0;i<nArr;i++){
       const o=pos.sky.clone().add(new THREE.Vector3(uniform(-5,5),uniform(0,2),uniform(-5,5)));
-      addArrow(o,new THREE.Vector3(0,-1,0),4*(p.Q_solar/800),colours.solar,'solar');
+      addArrow(o,new THREE.Vector3(0,-1,0), 4*(p.Q_solar/800), colours.solar,'solar');
     }
   }
   
@@ -260,22 +274,45 @@ function drawFluxes(Fx, p){ // Fx and p will come from Python backend
     const Lnet_can_atm = Fx.canopy.LW_atm; // LW_can_atm = ei*A_can*(LW_down - lw(T_can))
                                          // Positive if LW_down > lw(T_can) (net gain for canopy)
     if (Math.abs(Lnet_can_atm) > 1) {
-      const dir = new THREE.Vector3(0, Lnet_can_atm > 0 ? -1 : 1, 0); // Positive net gain -> arrow down
-      addArrow(pos.canopy, dir, 1.2 + Math.abs(Lnet_can_atm) / 80, colours.longwave, 'longwave');
+      addArrow(pos.canopy, arrowDir(-Lnet_can_atm), scaleLen(Lnet_can_atm), colours.longwave, 'longwave');
     }
   }
   // Example for Latent Heat from canopy:
   if (Fx.canopy && Fx.canopy.latent_evap !== undefined && act.includes('latent')) {
     const LE_can = Fx.canopy.latent_evap; // latent_evap = -Lv * dot_m_vap_can (energy loss)
     if (Math.abs(LE_can) > 1) {
-        // LE_can is already negative for upward flux (evaporation is a loss)
-        const dir = new THREE.Vector3(0, LE_can > 0 ? -1 : 1, 0); // Should be mostly upward for evap
-        addArrow(pos.canopy, dir, 1.2 + Math.abs(LE_can)/60, colours.latent, 'latent');
+        addArrow(pos.canopy, arrowDir(LE_can), scaleLen(LE_can), colours.latent, 'latent');
+    }
+  }
+  if (Fx.soil && Fx.soil.latent_evap !== undefined && act.includes('latent')) {
+    const LE_soil = Fx.soil.latent_evap;
+    if (Math.abs(LE_soil) > 1) {
+      addArrow(pos.soil, arrowDir(LE_soil), scaleLen(LE_soil), colours.latent, 'latent');
+    }
+  }
+  if (Fx.soil && Fx.soil.cond_to_deep !== undefined && act.includes('conduction')) {
+    const C_deep = Fx.soil.cond_to_deep;
+    if (Math.abs(C_deep) > 1) {
+      addArrow(pos.soil, arrowDir(C_deep), scaleLen(C_deep), colours.conduction, 'conduction');
     }
   }
 
 
   setArrowVisibility();
+}
+
+function updateFluxValues(Fx){
+  fluxValuesDiv.innerHTML='';
+  if(!Fx) return;
+  for(const [node,comps] of Object.entries(Fx)){
+    for(const [k,v] of Object.entries(comps)){
+      if(k==='net') continue;
+      if(Math.abs(v) < 0.01) continue;
+      const d=document.createElement('div');
+      d.textContent=`${node} ${k}: ${v.toFixed(1)} W m⁻²`;
+      fluxValuesDiv.appendChild(d);
+    }
+  }
 }
 
 /* ---------- update (MODIFIED TO FETCH FROM PYTHON) --------------------- */
@@ -346,6 +383,7 @@ async function updateVisualisation(){
 
     /* flux arrows & text */
     drawFluxes(Fx_backend, p_backend); // Pass backend fluxes and parameters
+    updateFluxValues(Fx_backend);
     qSolDiv.textContent   = `Qsolar   : ${p_backend.Q_solar !== undefined ? p_backend.Q_solar.toFixed(0) : '—'} W m⁻²`;
     
     if (Fx_backend.canopy && Fx_backend.canopy.conv_atm !== undefined) {
