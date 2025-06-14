@@ -287,7 +287,9 @@ async function updateVisualisation(){
   const selectedForest = forestSel.value;
 
   try {
-    const response = await fetch('http://localhost:5000/api/run_simulation', { // USE FULL URL
+    // Use a relative path so the API works both locally (with `app.py`) and when
+    // deployed (e.g. to Vercel where the endpoint lives at `/api/run_simulation`).
+    const response = await fetch('/api/run_simulation', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
