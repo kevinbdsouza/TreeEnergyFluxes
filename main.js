@@ -23,10 +23,12 @@ const fluxValuesDiv = document.getElementById('flux_values');
 const seasonSel = document.getElementById('season');
 const forestSel = document.getElementById('forest_type');
 const updateBtn = document.getElementById('updateButton');
+const treeCountInput = document.getElementById('tree_count');
+const treeSpacingInput = document.getElementById('tree_spacing');
 
 /* ---------- three.js scene set-up --------------------------------------- */
 let scene, camera, renderer, controls;
-let canopyGroup, trunkMesh, snowMesh, soilMesh, fluxArrows; // trunkMesh here is the large central one if used
+let canopyGroup, trunkMesh, snowMesh, soilMesh, fluxArrows, extraTreesGroup; // trunkMesh here is the large central one if used
 
 function init() {
   scene = new THREE.Scene();
@@ -68,6 +70,7 @@ function init() {
   scene.add(windGroup);
 
   canopyGroup = new THREE.Group();  scene.add(canopyGroup);
+  extraTreesGroup = new THREE.Group(); scene.add(extraTreesGroup);
   fluxArrows  = new THREE.Group();  scene.add(fluxArrows);
 
   window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
@@ -101,15 +104,17 @@ const tempColour = (T,Tref)=>{
 /* ---------- scene builders (ensure buildColumn and makeTree are up-to-date from previous steps) ---- */
 function ensureGround(){
   if(soilMesh) return;
-  const g=new THREE.PlaneGeometry(20,20);
+  const size=100;
+  const g=new THREE.PlaneGeometry(size,size);
   soilMesh=new THREE.Mesh(g,new THREE.MeshStandardMaterial({color:0x8b7765,roughness:1}));
   soilMesh.rotation.x=-Math.PI/2; soilMesh.receiveShadow=true; scene.add(soilMesh);
-  const grid=new THREE.GridHelper(20,20,0x444444,0x888888); grid.material.opacity=0.3; grid.material.transparent=true;
+  const grid=new THREE.GridHelper(size,size/2,0x444444,0x888888); grid.material.opacity=0.3; grid.material.transparent=true;
   scene.add(grid);
 }
 
-function buildColumn(p){ // p will now come from Python backend
+function buildColumn(p, nTrees=1, spacing=10){ // p will now come from Python backend
   canopyGroup.clear(); // fluxArrows are cleared in drawFluxes
+  extraTreesGroup.clear();
   if(trunkMesh){scene.remove(trunkMesh);trunkMesh=null;} // This is the large central trunk
   if(snowMesh ){scene.remove(snowMesh );snowMesh =null;}
   ensureGround();
@@ -142,6 +147,23 @@ function buildColumn(p){ // p will now come from Python backend
       const rad=uniform(0,spread);
       tree.position.set(Math.cos(ang)*rad,p.H_canopy,Math.sin(ang)*rad);
       canopyGroup.add(tree);
+    }
+  }
+
+  // additional surrounding trees
+  const totalTrees = Math.max(1, Math.floor(nTrees));
+  const gridSize = Math.ceil(Math.sqrt(totalTrees));
+  const center = Math.floor(gridSize/2);
+  let placed = 0;
+  for(let r=0; r<gridSize && placed<totalTrees; r++){
+    for(let c=0; c<gridSize && placed<totalTrees; c++){
+      const isCenter = r===center && c===center;
+      if(isCenter){placed++; continue;} // central tree handled above
+      if(placed>=totalTrees) break;
+      placed++;
+      const tree = makeTree(p);
+      tree.position.set((c-center)*spacing, 0, (r-center)*spacing);
+      extraTreesGroup.add(tree);
     }
   }
   const h = p.H_canopy > 0 ? p.H_canopy : 15;
@@ -429,7 +451,9 @@ async function updateVisualisation(){
     const Fx_backend = data.fluxes;
 
     // Use the data from backend
-    buildColumn(p_backend);
+    const nTrees = parseInt(treeCountInput.value); 
+    const spacing = parseFloat(treeSpacingInput.value);
+    buildColumn(p_backend, nTrees, spacing);
 
     /* colour nodes */
     const ref_T_atm = p_backend.T_atm; // Air temp for reference
