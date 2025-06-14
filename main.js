@@ -28,7 +28,7 @@ const treeSpacingInput = document.getElementById('tree_spacing');
 
 /* ---------- three.js scene set-up --------------------------------------- */
 let scene, camera, renderer, controls;
-let canopyGroup, trunkMesh, snowMesh, soilMesh, fluxArrows, extraTreesGroup; // trunkMesh here is the large central one if used
+let centralTreeGroup, snowMesh, soilMesh, fluxArrows, extraTreesGroup; // centralTreeGroup holds the main tree
 
 function init() {
   scene = new THREE.Scene();
@@ -69,7 +69,7 @@ function init() {
   }
   scene.add(windGroup);
 
-  canopyGroup = new THREE.Group();  scene.add(canopyGroup);
+  centralTreeGroup = new THREE.Group();  scene.add(centralTreeGroup);
   extraTreesGroup = new THREE.Group(); scene.add(extraTreesGroup);
   fluxArrows  = new THREE.Group();  scene.add(fluxArrows);
 
@@ -113,9 +113,8 @@ function ensureGround(){
 }
 
 function buildColumn(p, nTrees=1, spacing=10){ // p will now come from Python backend
-  canopyGroup.clear(); // fluxArrows are cleared in drawFluxes
+  centralTreeGroup.clear(); // fluxArrows are cleared in drawFluxes
   extraTreesGroup.clear();
-  if(trunkMesh){scene.remove(trunkMesh);trunkMesh=null;} // This is the large central trunk
   if(snowMesh ){scene.remove(snowMesh );snowMesh =null;}
   ensureGround();
 
@@ -128,26 +127,10 @@ function buildColumn(p, nTrees=1, spacing=10){ // p will now come from Python ba
     snowMesh.position.y=p.Hsnow/2; snowMesh.castShadow=snowMesh.receiveShadow=true; scene.add(snowMesh);
   }
 
-  /* trunk (central one, if A_trunk_plan is for it) */
-  if(p.A_trunk_plan > 0 && p.H_canopy > 0){
-     // Assuming p.A_trunk_plan is for the large central trunk, not the sum of small tree trunks
-    const radius=Math.max(0.1,Math.min(Math.sqrt(p.A_trunk_plan*100/Math.PI),2));
-    const g=new THREE.CylinderGeometry(radius*0.6,radius,p.H_canopy,12,3);
-    trunkMesh=new THREE.Mesh(g,new THREE.MeshStandardMaterial({color:0x8b4513,roughness:0.8}));
-    trunkMesh.position.y=p.H_canopy/2; trunkMesh.castShadow=true; scene.add(trunkMesh);
-  }
-
-  /* realistic mini-trees */
-  if(p.A_can > 0 && p.H_canopy > 0){
-    const n=Math.max(1,Math.floor(p.A_can*30)); // Using the increased density factor
-    const spread=5*Math.sqrt(p.A_can);
-    for(let i=0;i<n;i++){
-      const tree=makeTree(p); // p contains LAI, H_canopy etc. needed by makeTree
-      const ang=(i/n)*Math.PI*2+Math.random()*0.4;
-      const rad=uniform(0,spread);
-      tree.position.set(Math.cos(ang)*rad,p.H_canopy,Math.sin(ang)*rad);
-      canopyGroup.add(tree);
-    }
+  /* central tree */
+  if(p.H_canopy > 0){
+    const tree = makeTree(p);
+    centralTreeGroup.add(tree);
   }
 
   // additional surrounding trees
