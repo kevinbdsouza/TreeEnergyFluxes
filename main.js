@@ -31,7 +31,8 @@ let canopyGroup, trunkMesh, snowMesh, soilMesh, fluxArrows; // trunkMesh here is
 
 function init() {
   scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x87ceeb);
+  scene.background = new THREE.Color(0xbfd1e5);
+  scene.fog = new THREE.Fog(0xbfd1e5, 15, 40);
 
   camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 1000);
   camera.position.set(10,7,10); camera.lookAt(0,1,0);
@@ -44,7 +45,7 @@ function init() {
   controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true; controls.target.set(0,1,0);
 
-  scene.add(new THREE.AmbientLight(0xffffff,0.7));
+  scene.add(new THREE.HemisphereLight(0xffffbb,0x080820,0.6));
   const sun = new THREE.DirectionalLight(0xffffff,1.2);
   sun.position.set(5,10,7.5); sun.castShadow=true;
   sun.shadow.mapSize.width = sun.shadow.mapSize.height = 1024;
@@ -85,8 +86,10 @@ const tempColour = (T,Tref)=>{
 function ensureGround(){
   if(soilMesh) return;
   const g=new THREE.PlaneGeometry(20,20);
-  soilMesh=new THREE.Mesh(g,new THREE.MeshStandardMaterial({color:0x8b4513}));
+  soilMesh=new THREE.Mesh(g,new THREE.MeshStandardMaterial({color:0x556b2f}));
   soilMesh.rotation.x=-Math.PI/2; soilMesh.receiveShadow=true; scene.add(soilMesh);
+  const grid=new THREE.GridHelper(20,20,0x444444,0x888888); grid.material.opacity=0.3; grid.material.transparent=true;
+  scene.add(grid);
 }
 
 function buildColumn(p){ // p will now come from Python backend
@@ -200,10 +203,13 @@ function makeTree(p) {
 
 
 /* ---------- arrow helpers ------------------------------------------------ */
-function addArrow(orig,dir,len,col,cat){
-  const head=0.5, wid=0.3;
-  const a=new THREE.ArrowHelper(dir.clone().normalize(),orig,len,col,head,wid);
-  a.userData.category=cat; fluxArrows.add(a);
+function addArrow(orig, dir, len, col, cat) {
+  const head = Math.max(0.8, len * 0.25);
+  const wid  = head * 0.6;
+  const o    = orig.clone().add(dir.clone().normalize().multiplyScalar(head));
+  const a = new THREE.ArrowHelper(dir.clone().normalize(), o, Math.max(0.1, len - head), col, head, wid);
+  a.userData.category = cat;
+  fluxArrows.add(a);
 }
 const arrowCats=()=>[...document.querySelectorAll('.fluxToggle')].filter(cb=>cb.checked).map(cb=>cb.value);
 function setArrowVisibility(){const act=arrowCats(); fluxArrows.children.forEach(a=>a.visible=act.includes(a.userData.category));}
@@ -233,7 +239,7 @@ function drawFluxes(Fx, p){ // Fx and p will come from Python backend
                                                           // This matches if conv_atm = Q_canopy_sensible.
                                                           // Python: flux["canopy"]["conv_atm"] = -conv_can_atm where conv_can_atm = p["h_can"] * A_can * (T_can - p["T_atm"])
                                                           // So, if T_can > T_atm, conv_can_atm (in Python var) is positive, flux["canopy"]["conv_atm"] is negative (loss from canopy, up).
-      addArrow(pos.canopy, dir, 1 + Math.abs(H)/50, colours.sensible, 'sensible');
+      addArrow(pos.canopy, dir, 1.5 + Math.abs(H)/40, colours.sensible, 'sensible');
     }
   }
 
@@ -242,7 +248,7 @@ function drawFluxes(Fx, p){ // Fx and p will come from Python backend
     const nArr=Math.min(5,Math.max(1,Math.floor(p.Q_solar/150)));
     for(let i=0;i<nArr;i++){
       const o=pos.sky.clone().add(new THREE.Vector3(uniform(-5,5),uniform(0,2),uniform(-5,5)));
-      addArrow(o,new THREE.Vector3(0,-1,0),3*(p.Q_solar/800),colours.solar,'solar');
+      addArrow(o,new THREE.Vector3(0,-1,0),4*(p.Q_solar/800),colours.solar,'solar');
     }
   }
   
@@ -255,7 +261,7 @@ function drawFluxes(Fx, p){ // Fx and p will come from Python backend
                                          // Positive if LW_down > lw(T_can) (net gain for canopy)
     if (Math.abs(Lnet_can_atm) > 1) {
       const dir = new THREE.Vector3(0, Lnet_can_atm > 0 ? -1 : 1, 0); // Positive net gain -> arrow down
-      addArrow(pos.canopy, dir, 1 + Math.abs(Lnet_can_atm) / 100, colours.longwave, 'longwave');
+      addArrow(pos.canopy, dir, 1.2 + Math.abs(Lnet_can_atm) / 80, colours.longwave, 'longwave');
     }
   }
   // Example for Latent Heat from canopy:
@@ -264,7 +270,7 @@ function drawFluxes(Fx, p){ // Fx and p will come from Python backend
     if (Math.abs(LE_can) > 1) {
         // LE_can is already negative for upward flux (evaporation is a loss)
         const dir = new THREE.Vector3(0, LE_can > 0 ? -1 : 1, 0); // Should be mostly upward for evap
-        addArrow(pos.canopy, dir, 1 + Math.abs(LE_can)/75, colours.latent, 'latent');
+        addArrow(pos.canopy, dir, 1.2 + Math.abs(LE_can)/60, colours.latent, 'latent');
     }
   }
 

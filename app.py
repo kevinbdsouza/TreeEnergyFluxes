@@ -489,4 +489,4 @@ def handle_run_simulation():
 if __name__ == "__main__":
     # Make sure to run this with `python app.py`
     # The frontend fetch URL should be like `http://localhost:5000/api/run_simulation`
-    app.run(debug=True, port=8000)
+    app.run(debug=True, port=5000)
