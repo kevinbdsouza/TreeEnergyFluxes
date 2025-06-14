@@ -25,6 +25,10 @@ const forestSel = document.getElementById('forest_type');
 const updateBtn = document.getElementById('updateButton');
 const treeCountInput = document.getElementById('tree_count');
 const treeSpacingInput = document.getElementById('tree_spacing');
+// ensure slider labels and positions match initial values
+treeCountInput.value = 1;  treeSpacingInput.value = 10;
+document.getElementById('tree_count_val').textContent   = treeCountInput.value;
+document.getElementById('tree_spacing_val').textContent = treeSpacingInput.value;
 
 /* ---------- three.js scene set-up --------------------------------------- */
 let scene, camera, renderer, controls;
@@ -130,11 +134,10 @@ function buildColumn(p, nTrees=1, spacing=10){ // p will now come from Python ba
 
   /* trunk (central one, if A_trunk_plan is for it) */
   if(p.A_trunk_plan > 0 && p.H_canopy > 0){
-     // Assuming p.A_trunk_plan is for the large central trunk, not the sum of small tree trunks
-    const radius=Math.max(0.1,Math.min(Math.sqrt(p.A_trunk_plan*100/Math.PI),2));
-    const g=new THREE.CylinderGeometry(radius*0.6,radius,p.H_canopy,12,3);
-    trunkMesh=new THREE.Mesh(g,new THREE.MeshStandardMaterial({color:0x8b4513,roughness:0.8}));
-    trunkMesh.position.y=p.H_canopy/2; trunkMesh.castShadow=true; scene.add(trunkMesh);
+     const radius=Math.max(0.1,Math.min(Math.sqrt(p.A_trunk_plan*100/Math.PI),2));
+     const g=new THREE.CylinderGeometry(radius*0.6,radius,p.H_canopy,12,3);
+     trunkMesh=new THREE.Mesh(g,new THREE.MeshStandardMaterial({color:0x8b4513,roughness:0.8}));
+     trunkMesh.position.y=p.H_canopy/2; trunkMesh.castShadow=true; scene.add(trunkMesh);
   }
 
   /* realistic mini-trees */
