@@ -18,8 +18,6 @@ const tCanDiv   = document.getElementById('t_canopy');
 const tTrDiv    = document.getElementById('t_trunk');
 const tSnDiv    = document.getElementById('t_snow');
 const tSoDiv    = document.getElementById('t_soil');
-const qSolDiv   = document.getElementById('q_solar_display');
-const fluxInfoC = document.getElementById('flux_info_canopy');
 const fluxValuesDiv = document.getElementById('flux_values');
 
 const seasonSel = document.getElementById('season');
@@ -379,8 +377,13 @@ function drawFluxes(Fx, p){ // Fx and p will come from Python backend
   setArrowVisibility();
 }
 
-function updateFluxValues(Fx){
+function updateFluxValues(Fx, Qsolar){
   fluxValuesDiv.innerHTML='';
+  if(Qsolar !== undefined){
+    const d=document.createElement('div');
+    d.textContent=`Qsolar: ${Qsolar.toFixed(1)} W m⁻²`;
+    fluxValuesDiv.appendChild(d);
+  }
   if(!Fx) return;
   for(const [node,comps] of Object.entries(Fx)){
     for(const [k,v] of Object.entries(comps)){
@@ -437,38 +440,12 @@ async function updateVisualisation(){
     tSnDiv.textContent  = `Snow     : ${(p_backend.A_snow > 0 && T_backend.snow !== null && T_backend.snow !== undefined) ? T_backend.snow.toFixed(1) + ' K' : '—'}`;
     tSoDiv.textContent  = `Soil     : ${T_backend.soil !== null && T_backend.soil !== undefined ? T_backend.soil.toFixed(1) : '—'} K`;
     
-    // Color canopy elements (foliage of mini-trees)
-    canopyGroup.children.forEach(treeGroup => {
-        treeGroup.children.forEach(child => {
-            if (child.isMesh && child.material.name !== 'trunkMaterial') { // Assuming foliage material isn't named 'trunkMaterial'
-                 // Or identify foliage more robustly, e.g. if it's the second child or by geometry type
-                 if (child.geometry.type === "SphereGeometry" || child.geometry.type === "ConeGeometry") {
-                    child.material.color = tempColour(T_backend.canopy, ref_T_atm);
-                 }
-            }
-             // Color mini-tree trunks
-            if (child.isMesh && child.geometry.type === "CylinderGeometry") { // Basic check for trunk
-                 child.material.color = tempColour(T_backend.trunk, ref_T_atm);
-            }
-        });
-    });
-    
-    // Color the large central trunk mesh if it exists
-    if(trunkMesh) trunkMesh.material.color = tempColour(T_backend.trunk, ref_T_atm);
-    if(snowMesh && p_backend.A_snow > 0) snowMesh.material.color = tempColour(T_backend.snow, ref_T_atm - 5); // Snow often colder
-    if(soilMesh) soilMesh.material.color = tempColour(T_backend.soil, p_backend.T_deep);
+
 
 
     /* flux arrows & text */
     drawFluxes(Fx_backend, p_backend); // Pass backend fluxes and parameters
-    updateFluxValues(Fx_backend);
-    qSolDiv.textContent   = `Qsolar   : ${p_backend.Q_solar !== undefined ? p_backend.Q_solar.toFixed(0) : '—'} W m⁻²`;
-    
-    if (Fx_backend.canopy && Fx_backend.canopy.conv_atm !== undefined) {
-        fluxInfoC.textContent = `Canopy sensible H : ${Fx_backend.canopy.conv_atm.toFixed(1)} W m⁻²`;
-    } else {
-        fluxInfoC.textContent = `Canopy sensible H : —`;
-    }
+    updateFluxValues(Fx_backend, p_backend.Q_solar);
 
   } catch (error) {
     console.error('Error fetching or processing data:', error);
