@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Forest-Column Energy Balance • 3-D Flux Visualiser</title>
+<style>
+body{margin:0;overflow:hidden;font-family:Arial,Helvetica,sans-serif}
+canvas{display:block}
+#info,#legend,.controls{
+    position:absolute;z-index:10;background:rgba(0,0,0,.55);color:#fff;
+    padding:10px;border-radius:6px;font-size:13px;line-height:1.3
+}
+#info{top:10px;left:10px}
+.controls{top:10px;right:10px;width:180px}
+#legend{bottom:10px;left:10px;display:grid;grid-template-columns:auto 1fr;grid-gap:4px 8px}
+#legend .box{width:16px;height:16px;border-radius:3px}
+.controls label{display:block;margin-bottom:5px;font-weight:600}
+.controls select,.controls button{width:100%;margin-bottom:6px}
+.fluxToggle{margin-right:4px}
+</style>
+</head>
+<body>
+
+<!-- dynamic read-outs --------------------------------------------------------->
+<div id="info">
+  <h4 style="margin:0 0 6px 0">Temperatures [K]</h4>
+  <div id="t_air">Air     : —</div>
+  <div id="t_canopy">Canopy : —</div>
+  <div id="t_trunk">Trunk  : —</div>
+  <div id="t_snow">Snow   : —</div>
+  <div id="t_soil">Soil   : —</div>
+  <hr style="border:0;border-top:1px solid #999;margin:6px 0">
+  <div id="q_solar_display">Q<sub>solar</sub> : —</div>
+  <div id="flux_info_canopy">Canopy sensible H : —</div>
+</div>
+
+<!-- legend -------------------------------------------------------------------->
+<div id="legend">
+  <div class="box" style="background:#ffff00"></div><div>Solar (SW)</div>
+  <div class="box" style="background:#ff00ff"></div><div>Long-wave (LW)</div>
+  <div class="box" style="background:#ff8c00"></div><div>Sensible (H)</div>
+  <div class="box" style="background:#00bfff"></div><div>Latent (LE)</div>
+  <div class="box" style="background:#00ff00"></div><div>Conduction</div>
+  <div class="box" style="background:#ffffff"></div><div>Snow-melt</div>
+</div>
+
+<!-- user controls ------------------------------------------------------------->
+<div class="controls">
+  <label>Season</label>
+  <select id="season">
+      <option value="summer">Summer</option>
+      <option value="winter">Winter</option>
+  </select>
+
+  <label>Forest type</label>
+  <select id="forest_type">
+      <option value="deciduous">Deciduous</option>
+      <option value="coniferous">Coniferous</option>
+      <option value="none">None</option>
+  </select>
+
+  <label style="margin-top:6px">Flux families</label>
+  <label><input type="checkbox" class="fluxToggle" value="solar" checked>Solar</label>
+  <label><input type="checkbox" class="fluxToggle" value="longwave" checked>Long-wave</label>
+  <label><input type="checkbox" class="fluxToggle" value="sensible" checked>Sensible</label>
+  <label><input type="checkbox" class="fluxToggle" value="latent" checked>Latent</label>
+  <label><input type="checkbox" class="fluxToggle" value="conduction" checked>Conduction</label>
+  <label><input type="checkbox" class="fluxToggle" value="melt" checked>Melt</label>
+
+  <button id="updateButton">Sample and Run</button>
+</div>
+
+<!-- three.js & main script ---------------------------------------------------->
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+<script type="module" src="main.js"></script>
+</body>
+</html>
