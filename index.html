@@ -19,6 +19,7 @@ canvas{display:block}
 .controls label{display:block;margin-bottom:5px;font-weight:600}
 #flux_values{margin-top:4px}
 .controls select,.controls button{width:100%;margin-bottom:6px}
+.controls input[type=range]{width:100%;margin-bottom:6px}
 .fluxToggle{margin-right:4px}
 </style>
 </head>
@@ -72,6 +73,14 @@ canvas{display:block}
       <option value="coniferous">Coniferous</option>
       <option value="none">None</option>
   </select>
+
+  <label>Number of trees: <span id="tree_count_val">1</span></label>
+  <input type="range" id="tree_count" min="1" max="25" value="1" step="1"
+         oninput="document.getElementById('tree_count_val').textContent=this.value">
+
+  <label>Tree spacing (m): <span id="tree_spacing_val">10</span></label>
+  <input type="range" id="tree_spacing" min="5" max="20" value="10" step="1"
+         oninput="document.getElementById('tree_spacing_val').textContent=this.value">
 
   <label style="margin-top:6px">Flux families</label>
   <label><input type="checkbox" class="fluxToggle" value="solar" checked>Solar</label>
