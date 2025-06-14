@@ -50,7 +50,7 @@ function init() {
 
   scene.add(new THREE.HemisphereLight(0xffffbb,0x080820,0.6));
   const sun = new THREE.DirectionalLight(0xffffff,1.2);
-  sun.position.set(5,10,7.5); sun.castShadow=true;
+  sun.position.set(15,20,30); sun.castShadow=true;
   sun.shadow.mapSize.width = sun.shadow.mapSize.height = 1024;
   scene.add(sun);
   const sunMesh = new THREE.Mesh(
@@ -60,9 +60,14 @@ function init() {
   sunMesh.position.copy(sun.position);
   scene.add(sunMesh);
 
-  const windDir = new THREE.Vector3(1,0,0);
-  const windArrow = new THREE.ArrowHelper(windDir, new THREE.Vector3(-6,5,0), 4, 0x99ccff, 1, 0.5);
-  scene.add(windArrow);
+  const windDir = new THREE.Vector3(1,-0.3,0).normalize();
+  const windGroup = new THREE.Group();
+  for(let i=0;i<3;i++){
+    const o = new THREE.Vector3(-8 - i*1.5,6+i*0.5,-2);
+    const a = new THREE.ArrowHelper(windDir, o, 4, 0x99ccff, 1, 0.5);
+    windGroup.add(a);
+  }
+  scene.add(windGroup);
 
   canopyGroup = new THREE.Group();  scene.add(canopyGroup);
   fluxArrows  = new THREE.Group();  scene.add(fluxArrows);
@@ -141,8 +146,9 @@ function buildColumn(p){ // p will now come from Python backend
       canopyGroup.add(tree);
     }
   }
-  controls.target.set(0,p.H_canopy/2,0);
-  camera.position.set(p.H_canopy*1.2,p.H_canopy, p.H_canopy*1.6);
+  const h = p.H_canopy > 0 ? p.H_canopy : 15;
+  controls.target.set(0,h/2,0);
+  camera.position.set(h*1.2,h, h*1.6);
   controls.update();
 }
 
@@ -256,6 +262,24 @@ function drawFluxes(Fx, p){ // Fx and p will come from Python backend
       addArrow(pos.canopy, arrowDir(H), scaleLen(H), colours.sensible, 'sensible');
     }
   }
+  if(Fx.trunk && Fx.trunk.conv_atm !== undefined && act.includes('sensible')){
+    const H = Fx.trunk.conv_atm;
+    if(Math.abs(H)>1){
+      addArrow(pos.trunk, arrowDir(H), scaleLen(H), colours.sensible, 'sensible');
+    }
+  }
+  if(Fx.snow && Fx.snow.conv_atm !== undefined && act.includes('sensible')){
+    const H = Fx.snow.conv_atm;
+    if(Math.abs(H)>1){
+      addArrow(pos.snow, arrowDir(H), scaleLen(H), colours.sensible, 'sensible');
+    }
+  }
+  if(Fx.soil && Fx.soil.conv_atm !== undefined && act.includes('sensible')){
+    const H = Fx.soil.conv_atm;
+    if(Math.abs(H)>1){
+      addArrow(pos.soil, arrowDir(H), scaleLen(H), colours.sensible, 'sensible');
+    }
+  }
 
   // Solar radiation (example)
   if(p.Q_solar !== undefined && act.includes('solar')){
@@ -277,6 +301,24 @@ function drawFluxes(Fx, p){ // Fx and p will come from Python backend
       addArrow(pos.canopy, arrowDir(-Lnet_can_atm), scaleLen(Lnet_can_atm), colours.longwave, 'longwave');
     }
   }
+  if (Fx.trunk && Fx.trunk.LW_atm !== undefined && act.includes('longwave')) {
+    const L = Fx.trunk.LW_atm;
+    if (Math.abs(L) > 1) {
+      addArrow(pos.trunk, arrowDir(-L), scaleLen(L), colours.longwave, 'longwave');
+    }
+  }
+  if (Fx.snow && Fx.snow.LW_atm !== undefined && act.includes('longwave')) {
+    const L = Fx.snow.LW_atm;
+    if (Math.abs(L) > 1) {
+      addArrow(pos.snow, arrowDir(-L), scaleLen(L), colours.longwave, 'longwave');
+    }
+  }
+  if (Fx.soil && Fx.soil.LW_atm !== undefined && act.includes('longwave')) {
+    const L = Fx.soil.LW_atm;
+    if (Math.abs(L) > 1) {
+      addArrow(pos.soil, arrowDir(-L), scaleLen(L), colours.longwave, 'longwave');
+    }
+  }
   // Example for Latent Heat from canopy:
   if (Fx.canopy && Fx.canopy.latent_evap !== undefined && act.includes('latent')) {
     const LE_can = Fx.canopy.latent_evap; // latent_evap = -Lv * dot_m_vap_can (energy loss)
@@ -294,6 +336,42 @@ function drawFluxes(Fx, p){ // Fx and p will come from Python backend
     const C_deep = Fx.soil.cond_to_deep;
     if (Math.abs(C_deep) > 1) {
       addArrow(pos.soil, arrowDir(C_deep), scaleLen(C_deep), colours.conduction, 'conduction');
+    }
+  }
+  if (Fx.snow && Fx.snow.melt_sink !== undefined && act.includes('melt')) {
+    const M = Fx.snow.melt_sink;
+    if (Math.abs(M) > 1) {
+      addArrow(pos.snow, new THREE.Vector3(0,-1,0), scaleLen(M), colours.melt, 'melt');
+    }
+  }
+
+  // Conduction between components
+  if (Fx.canopy && Fx.canopy.cond_to_trunk !== undefined && act.includes('conduction')) {
+    const C = Fx.canopy.cond_to_trunk;
+    if (Math.abs(C) > 1) {
+      const dir = C < 0 ? new THREE.Vector3(0,-1,0) : new THREE.Vector3(0,1,0);
+      addArrow(pos.canopy, dir, scaleLen(C), colours.conduction, 'conduction');
+    }
+  }
+  if (Fx.trunk && Fx.trunk.cond_to_soil !== undefined && act.includes('conduction')) {
+    const C = Fx.trunk.cond_to_soil;
+    if (Math.abs(C) > 1) {
+      const dir = C < 0 ? new THREE.Vector3(0,-1,0) : new THREE.Vector3(0,1,0);
+      addArrow(pos.trunk, dir, scaleLen(C), colours.conduction, 'conduction');
+    }
+  }
+  if (Fx.trunk && Fx.trunk.cond_to_snow !== undefined && act.includes('conduction')) {
+    const C = Fx.trunk.cond_to_snow;
+    if (Math.abs(C) > 1) {
+      const dir = C < 0 ? new THREE.Vector3(0,-1,0) : new THREE.Vector3(0,1,0);
+      addArrow(pos.trunk, dir, scaleLen(C), colours.conduction, 'conduction');
+    }
+  }
+  if (Fx.snow && Fx.snow.cond_to_soil !== undefined && act.includes('conduction')) {
+    const C = Fx.snow.cond_to_soil;
+    if (Math.abs(C) > 1) {
+      const dir = C < 0 ? new THREE.Vector3(0,-1,0) : new THREE.Vector3(0,1,0);
+      addArrow(pos.snow, dir, scaleLen(C), colours.conduction, 'conduction');
     }
   }
 
